@@ -1,0 +1,28 @@
+version: 1
+start:
+  command: ["uvicorn", "mcp_server:app", "--host", "0.0.0.0", "--port", "8000"]
+  port: 8000
+  env:
+    WORKFLOW_DB_PATH: "/data/workflows.db"
+    PYTHONUNBUFFERED: "1"
+
+# Health check configuration
+health:
+  path: /api/health
+  initial_delay_seconds: 10
+  period_seconds: 30
+  timeout_seconds: 5
+  failure_threshold: 3
+
+# Resource requirements
+resources:
+  cpu: 1000m
+  memory: 2Gi
+  ephemeral_storage: 1Gi
+
+# Auto-scaling configuration
+# autoscaling:
+#   min_replicas: 1
+#   max_replicas: 3
+#   target_cpu_utilization: 60
+#   target_memory_utilization: 80
