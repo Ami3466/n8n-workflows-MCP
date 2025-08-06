@@ -6,13 +6,15 @@ start:
     WORKFLOW_DB_PATH: "/data/workflows.db"
     PYTHONUNBUFFERED: "1"
 
+# Minimal health check
 health:
   path: /api/health
-  initial_delay_seconds: 30
+  initial_delay_seconds: 10
   period_seconds: 30
-  timeout_seconds: 10
+  timeout_seconds: 5
   failure_threshold: 3
 
+# Minimal resources
 resources:
-  cpu: 1000m
-  memory: 2Gi
+  cpu: 500m
+  memory: 1Gi
