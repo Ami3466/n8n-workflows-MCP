@@ -1,7 +1,25 @@
+version: '3.8'
+
 services:
-  doc:
-    image: workflows-doc:latest
-    build:
-      context: .
+  mcp-server:
+    build: .
+    image: n8n-workflow-mcp:latest
+    container_name: n8n-workflow-mcp
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    volumes:
+      - ./workflows:/app/workflows
+      - workflow-db:/data
+    environment:
+      - WORKFLOW_DB_PATH=/data/workflows.db
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  workflow-db:

@@ -1,22 +1,73 @@
-# ⚡ N8N Workflow Collection & Documentation
+# ⚡ N8N Workflow Collection & MCP Server
 
-A professionally organized collection of **2,053 n8n workflows** with a lightning-fast documentation system that provides instant search, analysis, and browsing capabilities.
+A professionally organized collection of **2,053 n8n workflows** with a lightning-fast documentation system and MCP (Model Control Protocol) server that provides semantic search and programmatic access to workflows.
 
-## 🚀 **NEW: High-Performance Documentation System**
+## 🚀 **Features**
 
-**Experience 100x performance improvement over traditional documentation!**
+- **Semantic Search**: Find workflows using natural language queries
+- **MCP Server**: Programmatic access to workflow search functionality
+- **Lightning Fast**: Optimized for sub-100ms response times
+- **Docker Support**: Easy deployment with containerization
+- **REST API**: Standardized endpoints for integration
 
-### Quick Start - Fast Documentation System
+## 🏃‍♂️ Quick Start
+
+### Local Development
+
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Start the fast API server
-python run.py
+# Download NLTK data
+python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
 
-# Open in browser
-http://localhost:8000
+# Start the MCP server
+uvicorn mcp_server:app --reload
+
+# Or start the web interface
+python run.py
 ```
+
+### Using Docker
+
+```bash
+# Build the Docker image
+docker build -t n8n-workflows .
+
+# Run the container
+docker run -p 8000:8000 n8n-workflows
+
+# Or with volume mounting for persistence
+docker run -p 8000:8000 -v $(pwd)/workflows:/app/workflows n8n-workflows
+```
+
+## 🔍 MCP Server Endpoints
+
+The MCP server exposes the following endpoints:
+
+- `GET /mcp/list` - List available MCP resources and tools
+- `POST /mcp/workflows/search_workflows` - Semantic search for workflows
+- `GET /api/health` - Health check endpoint
+- `GET /api/stats` - Get database statistics
+
+### Example: Semantic Search
+
+```http
+POST /mcp/workflows/search_workflows
+Content-Type: application/json
+
+{
+  "query": "ai calculator agent",
+  "limit": 5,
+  "threshold": 0.4
+}
+```
+
+## 📚 API Documentation
+
+Once the server is running, access the interactive API documentation at:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
 **Features:**
 - ⚡ **Sub-100ms response times** with SQLite FTS5 search
