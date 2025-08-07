@@ -1,20 +1,53 @@
-version: 1
+# Smithery deployment configuration
+# See: https://smithery.ai/docs/build/deployments
 
-# Application settings
-app:
-  name: n8n-workflows-mcp
+# Required: Runtime configuration
+runtime: "container"
+
+# Build configuration
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
+
+# Start command configuration
+startCommand:
+  type: "http"
   port: 8000
-  command: ["uvicorn", "mcp_server:mcp.app", "--host", "0.0.0.0", "--port", "8000"]
+  path: "/mcp"
 
-# Health check
+# Health check configuration
 health:
-  path: /health
-  initial_delay_seconds: 5
-  period_seconds: 30
-  timeout_seconds: 3
-  failure_threshold: 3
+  path: "/health"
+  initialDelaySeconds: 5
+  periodSeconds: 30
+  timeoutSeconds: 3
+  failureThreshold: 3
 
-# Minimal resources
+# Resource requirements
 resources:
-  cpu: 200m
-  memory: 256Mi
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+# Environment variables
+env:
+  - name: PORT
+    value: "8000"
+  - name: PYTHONUNBUFFERED
+    value: "1"
+
+# Configuration schema for the MCP server
+configSchema:
+  type: "object"
+  properties:
+    debug:
+      type: "boolean"
+      default: false
+      description: "Enable debug mode"
+  required: []
+
+exampleConfig:
+  debug: false

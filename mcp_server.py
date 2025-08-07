@@ -7,77 +7,201 @@ Exposes workflow search functionality as MCP tools.
 import os
 import json
 import uvicorn
-from fastmcp import FastMCP, MCPResult
-from pydantic import BaseModel, Field
-from typing import List, Dict, Any
-import os
+import json
+import uuid
 import time
+import logging
+from typing import Dict, List, Any, Optional, Union
+from fastapi import FastAPI, Request, Response, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+import uvicorn
 
-# Initialize MCP server
-mcp = FastMCP(
-    name="N8N Workflows MCP",
-    description="MCP server for managing and searching N8N workflows",
-    version="0.1.0"
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize FastAPI app
+app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Simple in-memory storage for testing
+# MCP Models
+class MCPRequest(BaseModel):
+    jsonrpc: str = "2.0"
+    id: Optional[Union[str, int]] = None
+    method: Optional[str] = None
+    params: Optional[Dict[str, Any]] = None
+
+class MCPResponse(BaseModel):
+    jsonrpc: str = "2.0"
+    id: Optional[Union[str, int, None]]
+    result: Optional[Any] = None
+    error: Optional[Dict[str, Any]] = None
+
+# In-memory storage for workflows
 workflows = [
     {"id": "1", "name": "Example Workflow", "description": "A sample workflow"},
     {"id": "2", "name": "Data Processing", "description": "Process data from API"},
 ]
 
-# Define models
-class SearchParams(BaseModel):
-    query: str = Field(..., description="Search query")
-    limit: int = Field(5, description="Max number of results")
-
-class Workflow(BaseModel):
-    id: str
-    name: str
-    description: str
-
-# Register tools
-@mcp.tool(
-    name="search_workflows",
-    description="Search for workflows",
-    input_model=SearchParams,
-    output_model=List[Workflow]
-)
-async def search_workflows(params: SearchParams) -> MCPResult:
-    """Search for workflows matching the query"""
+# MCP Handlers
+async def handle_mcp_request(request: MCPRequest) -> MCPResponse:
+    """Handle MCP requests and route to appropriate handler"""
     try:
-        query = params.query.lower()
+        if not request.method:
+            raise ValueError("No method specified")
+            
+        if request.method == "initialize":
+            return handle_initialize()
+        elif request.method == "tools/list":
+            return handle_list_tools()
+        elif request.method == "tools/call":
+            return await handle_call_tool(request.params or {})
+        else:
+            return MCPResponse(
+                id=request.id,
+                error={"code": -32601, "message": f"Method not found: {request.method}"}
+            )
+    except Exception as e:
+        logger.exception("Error handling MCP request")
+        return MCPResponse(
+            id=request.id,
+            error={"code": -32603, "message": f"Internal error: {str(e)}"}
+        )
+
+def handle_initialize() -> MCPResponse:
+    """Handle MCP initialize request"""
+    return MCPResponse(
+        id=None,
+        result={
+            "serverInfo": {
+                "name": "N8N Workflows MCP",
+                "version": "0.1.0",
+                "description": "MCP server for managing and searching N8N workflows"
+            },
+            "capabilities": {
+                "tools": {"enabled": True}
+            }
+        }
+    )
+
+def handle_list_tools() -> MCPResponse:
+    """Handle tools/list request"""
+    return MCPResponse(
+        id=None,
+        result={
+            "tools": [
+                {
+                    "name": "search_workflows",
+                    "description": "Search for workflows by name or description",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "Search query"},
+                            "limit": {"type": "integer", "minimum": 1, "default": 5}
+                        },
+                        "required": ["query"]
+                    }
+                },
+                {
+                    "name": "get_workflow",
+                    "description": "Get a workflow by ID",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "workflow_id": {"type": "string", "description": "Workflow ID"}
+                        },
+                        "required": ["workflow_id"]
+                    }
+                }
+            ]
+        }
+    )
+
+async def handle_call_tool(params: Dict[str, Any]) -> MCPResponse:
+    """Handle tools/call request"""
+    tool_name = params.get("name")
+    tool_params = params.get("parameters", {})
+    
+    if tool_name == "search_workflows":
+        query = tool_params.get("query", "").lower()
+        limit = min(int(tool_params.get("limit", 5)), 20)
+        
         results = [
             wf for wf in workflows 
             if query in wf["name"].lower() or query in wf["description"].lower()
-        ][:params.limit]
-        return MCPResult(content=results, success=True)
-    except Exception as e:
-        return MCPResult(content={"error": str(e)}, success=False)
-
-@mcp.tool(
-    name="get_workflow",
-    description="Get a workflow by ID",
-    input_model=dict,
-    output_model=Workflow
-)
-async def get_workflow(params: dict) -> MCPResult:
-    """Get a workflow by its ID"""
-    try:
-        workflow_id = params.get("workflow_id")
+        ][:limit]
+        
+        return MCPResponse(
+            id=params.get("id"),
+            result={"results": results}
+        )
+        
+    elif tool_name == "get_workflow":
+        workflow_id = tool_params.get("workflow_id")
         for wf in workflows:
             if wf["id"] == workflow_id:
-                return MCPResult(content=wf, success=True)
-        return MCPResult(content={"error": "Workflow not found"}, success=False)
+                return MCPResponse(
+                    id=params.get("id"),
+                    result={"workflow": wf}
+                )
+        
+        return MCPResponse(
+            id=params.get("id"),
+            error={"code": 404, "message": "Workflow not found"}
+        )
+    
+    return MCPResponse(
+        id=params.get("id"),
+        error={"code": 404, "message": f"Tool not found: {tool_name}"}
+    )
+
+# HTTP Endpoints
+@app.post("/mcp")
+async def mcp_endpoint(request: Request):
+    """Main MCP endpoint that handles JSON-RPC requests"""
+    try:
+        # Parse request body
+        try:
+            body = await request.json()
+            mcp_request = MCPRequest(**body)
+        except Exception as e:
+            logger.error(f"Invalid request: {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid request format")
+        
+        # Handle the MCP request
+        response = await handle_mcp_request(mcp_request)
+        
+        # Set the ID from request if not set in response
+        if response.id is None:
+            response.id = mcp_request.id
+            
+        return response.dict(exclude_none=True)
+        
     except Exception as e:
-        return MCPResult(content={"error": str(e)}, success=False)
+        logger.exception("Error processing MCP request")
+        return MCPResponse(
+            id=getattr(mcp_request, 'id', None),
+            error={"code": -32603, "message": f"Internal error: {str(e)}"}
+        ).dict(exclude_none=True)
 
-# Health check endpoint
-@mcp.app.get("/health")
+@app.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": time.time()}
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "service": "n8n-workflows-mcp"
+    }
 
-# Run the server
 if __name__ == "__main__":
     import argparse
     
