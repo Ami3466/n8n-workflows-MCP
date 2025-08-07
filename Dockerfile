@@ -4,35 +4,28 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    WORKFLOW_DB_PATH="/data/workflows.db"
-
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    python3-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Set up a virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install only FastMCP and FastAPI
+RUN pip install --no-cache-dir fastmcp==0.1.0 fastapi==0.104.0 uvicorn==0.24.0
 
-# Copy application code
-COPY . .
+# Copy only the necessary files
+COPY mcp_server.py .
 
-# Create data directory
-RUN mkdir -p /data
-
-# Expose port 8000
-EXPOSE 8000
+# Create a simple health check script
+RUN echo '#!/bin/sh\ncurl -f http://localhost:8000/health || exit 1' > /healthcheck.sh \
+    && chmod +x /healthcheck.sh
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD ["/healthcheck.sh"]
 
 # Command to run the application
 CMD ["uvicorn", "mcp_server:mcp.app", "--host", "0.0.0.0", "--port", "8000"]

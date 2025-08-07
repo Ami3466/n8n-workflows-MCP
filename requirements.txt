@@ -1,10 +1,9 @@
 # N8N Workflows API Dependencies
 # Core API Framework
-fastmcp>=0.1.0
-fastapi>=0.68.0
-uvicorn>=0.15.0
-pydantic>=1.10.0
-python-dotenv>=0.19.0
+fastmcp==0.1.0
+fastapi==0.68.0
+uvicorn==0.15.0
+pydantic==1.10.0
 
 # Database
 # Note: sqlite3 is part of Python's standard library

@@ -7,12 +7,11 @@ Exposes workflow search functionality as MCP tools.
 import os
 import json
 import uvicorn
-from fastmcp import FastMCP, MCPTool, MCPResult
+from fastmcp import FastMCP, MCPResult
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 import os
-import json
-from workflow_db import WorkflowDatabase
+import time
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -21,107 +20,64 @@ mcp = FastMCP(
     version="0.1.0"
 )
 
-# Initialize database
-db_path = os.getenv("WORKFLOW_DB_PATH", "workflows.db")
-db = WorkflowDatabase(db_path)
+# Simple in-memory storage for testing
+workflows = [
+    {"id": "1", "name": "Example Workflow", "description": "A sample workflow"},
+    {"id": "2", "name": "Data Processing", "description": "Process data from API"},
+]
 
 # Define models
-class WorkflowSearchParams(BaseModel):
-    query: str = Field(..., description="Search query for workflows")
-    limit: int = Field(10, description="Maximum number of results to return")
+class SearchParams(BaseModel):
+    query: str = Field(..., description="Search query")
+    limit: int = Field(5, description="Max number of results")
 
-class WorkflowResult(BaseModel):
+class Workflow(BaseModel):
     id: str
     name: str
-    description: Optional[str] = None
-    nodes: List[Dict[str, Any]]
+    description: str
 
 # Register tools
 @mcp.tool(
     name="search_workflows",
-    description="Search for N8N workflows by semantic similarity",
-    input_model=WorkflowSearchParams,
-    output_model=List[WorkflowResult]
+    description="Search for workflows",
+    input_model=SearchParams,
+    output_model=List[Workflow]
 )
-async def search_workflows(params: WorkflowSearchParams) -> MCPResult:
-    """Search for workflows using semantic search"""
-
-class MCPListResponse(BaseModel):
-    server: MCPServerInfo
-    resources: List[MCPResource]
-
-class SearchWorkflowsInput(BaseModel):
-    query: str = Field(..., description="Search query")
-    limit: int = Field(10, ge=1, le=50, description="Maximum number of results")
-    threshold: float = Field(0.4, ge=0.0, le=1.0, description="Minimum similarity score (0-1)")
-
-class SearchWorkflowsToolOutput(BaseModel):
-    results: List[Dict[str, Any]]
-    query: str
-    total: int
-    limit: int
-    threshold: float
-
-# MCP Endpoints
-@app.get("/mcp/list", response_model=MCPListResponse)
-async def list_resources():
-    """List available MCP resources and tools."""
-    return {
-        "server": {
-            "name": "n8n-workflow-search",
-            "version": "1.0.0",
-            "description": "MCP server for searching N8N workflows"
-        },
-        "resources": [
-            {
-                "name": "workflows",
-                "description": "N8N workflow search and management",
-                "type": "workflow",
-                "tools": [
-                    {
-                        "name": "search_workflows",
-                        "description": "Search workflows using semantic similarity",
-                        "input_schema": SearchWorkflowsInput.schema()
-                    }
-                ]
-            }
-        ]
-    }
-
-@app.post("/mcp/workflows/search_workflows")
-async def search_workflows_tool(input: SearchWorkflowsInput):
-    """MCP tool for searching workflows using semantic similarity."""
+async def search_workflows(params: SearchParams) -> MCPResult:
+    """Search for workflows matching the query"""
     try:
-        # Perform semantic search
-        results = db.search_workflows_semantic(
-            query=input.query,
-            limit=input.limit,
-            threshold=input.threshold
-        )
-        
-        # Prepare response
-        return {
-            "results": results,
-            "query": input.query,
-            "total": len(results),
-            "limit": input.limit,
-            "threshold": input.threshold
-        }
-        
+        query = params.query.lower()
+        results = [
+            wf for wf in workflows 
+            if query in wf["name"].lower() or query in wf["description"].lower()
+        ][:params.limit]
+        return MCPResult(content=results, success=True)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error performing search: {str(e)}")
+        return MCPResult(content={"error": str(e)}, success=False)
 
-# Standard API Endpoints (for testing)
-@app.get("/api/health")
+@mcp.tool(
+    name="get_workflow",
+    description="Get a workflow by ID",
+    input_model=dict,
+    output_model=Workflow
+)
+async def get_workflow(params: dict) -> MCPResult:
+    """Get a workflow by its ID"""
+    try:
+        workflow_id = params.get("workflow_id")
+        for wf in workflows:
+            if wf["id"] == workflow_id:
+                return MCPResult(content=wf, success=True)
+        return MCPResult(content={"error": "Workflow not found"}, success=False)
+    except Exception as e:
+        return MCPResult(content={"error": str(e)}, success=False)
+
+# Health check endpoint
+@mcp.app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "ok"}
+    return {"status": "healthy", "timestamp": time.time()}
 
-@app.get("/api/stats")
-async def get_stats():
-    """Get database statistics."""
-    return db.get_stats()
-
+# Run the server
 if __name__ == "__main__":
     import argparse
     
