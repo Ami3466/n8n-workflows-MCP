@@ -18,6 +18,56 @@ lib/
 lib64/
 parts/
 sdist/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local development
+workflows/
+data/
+
+# Logs
+*.log
+
+# Test files
+*.test
+
+# Local development
+local_settings.py
+
+# Cache
+.cache/
+
+# Node
+node_modules/
+
+# Build files
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VS Code
+.vscode/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 var/
 wheels/
 *.egg-info/
