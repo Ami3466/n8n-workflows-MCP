@@ -1,103 +1,18 @@
 version: 1
-
-# Application settings
-app:
-  name: n8n-workflows-mcp
+start:
+  command: ["uvicorn", "mcp_server:app", "--host", "0.0.0.0", "--port", "8000"]
   port: 8000
-
-# Runtime configuration
-runtime:
-  # Command to start the application
-  command: ["uvicorn", "mcp_server:app"]
-  args: ["--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "300"]
-  
-  # Environment variables
   env:
     WORKFLOW_DB_PATH: "/data/workflows.db"
     PYTHONUNBUFFERED: "1"
-    PYTHONFAULTHANDLER: "1"
-    PYTHONHASHSEED: "random"
 
-# Health check configuration
 health:
   path: /api/health
-  initial_delay_seconds: 30  # Give the app more time to start
-  period_seconds: 30
-  timeout_seconds: 10
-  success_threshold: 1
-  failure_threshold: 3
-
-# Resource requirements
-resources:
-  requests:
-    cpu: "500m"
-    memory: "1Gi"
-  limits:
-    cpu: "1000m"
-    memory: "2Gi"
-
-# Readiness probe
-readiness:
-  path: /api/health
   initial_delay_seconds: 10
-  period_seconds: 10
-  timeout_seconds: 5
-  success_threshold: 1
-  failure_threshold: 3
-
-# Liveness probe
-liveness:
-  path: /api/health
-  initial_delay_seconds: 60  # Give the app time to start
   period_seconds: 30
-  timeout_seconds: 10
-  success_threshold: 1
+  timeout_seconds: 3
   failure_threshold: 3
 
-# Autoscaling configuration (commented out by default)
-# autoscaling:
-#   enabled: true
-#   min_replicas: 1
-#   max_replicas: 3
-#   target_cpu_utilization: 70
-#   target_memory_utilization: 80
-
-# Volume mounts
-volumes:
-  - name: data
-    mountPath: /data
-    type: persistentVolumeClaim
-    size: 1Gi
-
-# Security context
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 2000
-  fsGroup: 2000
-  readOnlyRootFilesystem: true
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop:
-      - ALL
-  seccompProfile:
-    type: RuntimeDefault
-
-# Pod disruption budget (for high availability)
-pdb:
-  minAvailable: 1
-  maxUnavailable: 1
-
-# Pod anti-affinity rules (for high availability)
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-              - key: app
-                operator: In
-                values:
-                  - n8n-workflows-mcp
-          topologyKey: kubernetes.io/hostname
+resources:
+  cpu: 500m
+  memory: 1Gi
