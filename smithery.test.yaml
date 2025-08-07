@@ -1,0 +1,15 @@
+version: 1
+start:
+  command: ["uvicorn", "test_app:app", "--host", "0.0.0.0", "--port", "8000"]
+  port: 8000
+
+health:
+  path: /health
+  initial_delay_seconds: 5
+  period_seconds: 30
+  timeout_seconds: 3
+  failure_threshold: 3
+
+resources:
+  cpu: 100m
+  memory: 128Mi
