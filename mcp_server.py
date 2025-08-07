@@ -82,13 +82,16 @@ def handle_initialize() -> MCPResponse:
     return MCPResponse(
         id=None,
         result={
+            "protocolVersion": "2.0",
             "serverInfo": {
                 "name": "N8N Workflows MCP",
                 "version": "0.1.0",
                 "description": "MCP server for managing and searching N8N workflows"
             },
             "capabilities": {
-                "tools": {"enabled": True}
+                "tools": {
+                    "enabled": True
+                }
             }
         }
     )
