@@ -7,48 +7,44 @@ Exposes workflow search functionality as MCP tools.
 import os
 import json
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends, Request
-from fastapi.middleware.cors import CORSMiddleware
+from fastmcp import FastMCP, MCPTool, MCPResult
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
-
+from typing import List, Optional, Dict, Any
+import os
+import json
 from workflow_db import WorkflowDatabase
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="N8N Workflow MCP Server",
-    description="MCP server exposing workflow search functionality as tools",
-    version="1.0.0"
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# Initialize MCP server
+mcp = FastMCP(
+    name="N8N Workflows MCP",
+    description="MCP server for managing and searching N8N workflows",
+    version="0.1.0"
 )
 
 # Initialize database
-db = WorkflowDatabase()
+db_path = os.getenv("WORKFLOW_DB_PATH", "workflows.db")
+db = WorkflowDatabase(db_path)
 
-# MCP Models
-class MCPServerInfo(BaseModel):
-    name: str = "n8n-workflow-search"
-    version: str = "1.0.0"
-    description: str = "MCP server for searching N8N workflows"
+# Define models
+class WorkflowSearchParams(BaseModel):
+    query: str = Field(..., description="Search query for workflows")
+    limit: int = Field(10, description="Maximum number of results to return")
 
-class MCPTool(BaseModel):
+class WorkflowResult(BaseModel):
+    id: str
     name: str
-    description: str
-    input_schema: Dict[str, Any]
+    description: Optional[str] = None
+    nodes: List[Dict[str, Any]]
 
-class MCPResource(BaseModel):
-    name: str
-    description: str
-    type: str
-    tools: List[MCPTool]
+# Register tools
+@mcp.tool(
+    name="search_workflows",
+    description="Search for N8N workflows by semantic similarity",
+    input_model=WorkflowSearchParams,
+    output_model=List[WorkflowResult]
+)
+async def search_workflows(params: WorkflowSearchParams) -> MCPResult:
+    """Search for workflows using semantic search"""
 
 class MCPListResponse(BaseModel):
     server: MCPServerInfo
