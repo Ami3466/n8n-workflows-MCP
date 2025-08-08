@@ -1,0 +1,30 @@
+version: 1
+name: n8n-workflows
+
+# Build configuration
+build:
+  dockerfile: Dockerfile.test
+  context: .
+
+# Service configuration
+service:
+  port: 8000
+  command: ["uvicorn", "test_app:app", "--host", "0.0.0.0", "--port", "8000"]
+  env:
+    - name: PYTHONUNBUFFERED
+      value: "1"
+
+# Health checks
+health:
+  path: /health
+  initial_delay_seconds: 5
+  period_seconds: 30
+  timeout_seconds: 3
+  failure_threshold: 3
+
+# Resource limits
+resources:
+  cpu: 100m
+  memory: 128Mi
+
+# No need for MCP server configuration since we're using HTTP transport
